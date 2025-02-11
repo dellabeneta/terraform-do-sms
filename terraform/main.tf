@@ -1,15 +1,3 @@
-terraform {
-  required_providers {
-    digitalocean = {
-      source  = "digitalocean/digitalocean"
-      version = "2.48.2"
-    }
-  }
-}
-
-provider "digitalocean" {
-  token = var.do_token
-}
 
 # Criar cluster PostgreSQL
 resource "digitalocean_database_cluster" "db" {
@@ -21,17 +9,6 @@ resource "digitalocean_database_cluster" "db" {
   node_count = 1
 }
 
-# Output para pegar informações do banco
-output "db_connection" {
-  value = {
-    host     = digitalocean_database_cluster.db.host
-    port     = digitalocean_database_cluster.db.port
-    database = digitalocean_database_cluster.db.database
-    user     = digitalocean_database_cluster.db.user
-    password = digitalocean_database_cluster.db.password
-  }
-  sensitive = true
-}
 
 # App Platform (Frontend + Backend)
 resource "digitalocean_app" "cadastro_app" {
@@ -41,11 +18,11 @@ resource "digitalocean_app" "cadastro_app" {
 
     # Frontend (site estático)
     static_site {
-      name          = "frontend"
-      source_dir    = "/"
-      output_dir    = "/public"
+      name       = "frontend"
+      source_dir = "/"
+      output_dir = "/frontend/public"
       github {
-        repo           = "seu-usuario/repo-frontend" # Atualize com seu repositório
+        repo           = "dellabeneta/terraform-do-sms"
         branch         = "main"
         deploy_on_push = true
       }
@@ -53,19 +30,19 @@ resource "digitalocean_app" "cadastro_app" {
 
     # Backend (Flask)
     service {
-      name               = "backend"
+      name = "backend"
       github {
-        repo           = "seu-usuario/repo-backend" # Atualize com seu repositório
+        repo           = "dellabeneta/terraform-do-sms"
         branch         = "main"
         deploy_on_push = true
       }
-      source_dir         = "/"
+      source_dir         = "/backend"
       environment_slug   = "python"
       instance_count     = 1
       instance_size_slug = "basic-xxs"
       http_port          = 8000
 
-      # Variáveis de ambiente (substitua com seus valores)
+      # Variáveis de ambiente
       env {
         key   = "DB_NAME"
         value = digitalocean_database_cluster.db.database
@@ -99,13 +76,13 @@ resource "digitalocean_function" "send_sms" {
   name    = "send-sms"
   runtime = "nodejs18"
   code {
-    path      = "functions/send-sms"
-    runtime   = "nodejs18"
+    path    = "functions/send-sms"
+    runtime = "nodejs18"
   }
   environment_variables = {
-    TWILIO_ACCOUNT_SID   = var.twilio_account_sid
-    TWILIO_AUTH_TOKEN    = var.twilio_auth_token
-    TWILIO_PHONE_NUMBER  = var.twilio_phone_number
+    TWILIO_ACCOUNT_SID  = var.twilio_account_sid
+    TWILIO_AUTH_TOKEN   = var.twilio_auth_token
+    TWILIO_PHONE_NUMBER = var.twilio_phone_number
   }
 }
 
@@ -115,8 +92,3 @@ resource "digitalocean_function_trigger" "sms_trigger" {
   name        = "http-trigger"
   type        = "http"
 }
-
-# Variáveis do Twilio (adicionar em variables.tf)
-variable "twilio_account_sid" {}
-variable "twilio_auth_token" {}
-variable "twilio_phone_number" {}
